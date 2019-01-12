@@ -8,8 +8,11 @@
 
 import UIKit
 import RealmSwift
+import SwipeCellKit
+import ChameleonFramework
 
-class CategoryViewController: UITableViewController {
+
+class CategoryViewController: SwipeTableViewController {
     
     let realm = try! Realm()
     
@@ -19,11 +22,18 @@ class CategoryViewController: UITableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        print(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask))
+        tableView.rowHeight = 80
         
-        loadCategories()
+        tableView.separatorStyle = .none
+        
+        }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        
+       loadCategories()
     }
-
+    
+    
     // MARK: - Table view data source
 
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
@@ -34,9 +44,53 @@ class CategoryViewController: UITableViewController {
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
 
-        let cell = tableView.dequeueReusableCell(withIdentifier: "CategoryCell", for: indexPath)
+        let cell = super.tableView(tableView, cellForRowAt: indexPath) as! CustomCategoryCell
         
-        cell.textLabel?.text = categoryItems?[indexPath.row].title ?? "No Categories Found"
+        if let currentCategory = categoryItems?[indexPath.row] {
+            
+       // cell.textLabel?.font = UIFont(name: "Menlo", size: 25.5)
+        
+            if let font = UserDefaults.standard.string(forKey: "font") {
+            
+          cell.textLabel?.font = UIFont(name: font, size: 23)
+            }
+        
+        cell.textLabel?.text = currentCategory.title
+       
+//       cell.title.font = UIFont(name: "Menlo", size: 25.5)
+//
+//       cell.title.text = currentCategory.title
+
+        cell.backgroundColor = UIColor(hexString: currentCategory.backgroundColour)
+       
+        cell.textLabel?.textColor = ContrastColorOf(cell.backgroundColor!, returnFlat: true)
+            
+//      cell.title.textColor = ContrastColorOf(cell.backgroundColor!, returnFlat: true)
+        
+      //  let predicate = NSPredicate(format: "parentCategory CONTAINS %@", currentCategory.title)
+            
+        let numberOfItems = realm.objects(Item.self).filter("ANY parentCategory.title == %@", "\(currentCategory.title)").count
+        
+        // print(numberOfItems)
+            
+        cell.numberOfItems.text = "\(numberOfItems)"
+            
+        if let font = UserDefaults.standard.string(forKey: "font") {
+            cell.numberOfItems.font = UIFont(name: font, size: 23)
+            }
+            
+        cell.numberOfItems.textColor = ContrastColorOf(cell.backgroundColor!, returnFlat: true)
+            
+        //Set tint colour for the accessory types
+        cell.tintColor = ContrastColorOf(cell.backgroundColor!, returnFlat: true)
+            
+        }
+        else {
+        //cell.textLabel?.text = "No Categories Found"
+            
+        cell.title.text = "No Categories Found"
+        }
+        
         
         return cell
     }
@@ -59,29 +113,50 @@ class CategoryViewController: UITableViewController {
         
         var textField: UITextField?
         
-        let alertController = UIAlertController(title: "Add Category", message: "", preferredStyle: .alert)
+        let alertController = UIAlertController(title: "Add New Category", message: "", preferredStyle: .alert)
         
-        let action = UIAlertAction(title: "Add", style: .default) {
+        let addAction = UIAlertAction(title: "Add", style: .default) {
             
             (alertAction) in
             
+            if !((textField?.text ?? "").isEmpty)  {
+            
             let category = Category()
             
-            category.title = (textField?.text!)!
+            category.title = textField!.text!
+                
+            let categoryColour = RandomFlatColor().hexValue()
+            print("Category Colour: " + categoryColour)
+            category.backgroundColour = categoryColour
             
             self.save(category: category)
             
             self.tableView.reloadData()
+            }
+            else {
+              self.invalidCategory()
+            }
         }
         
-        alertController.addAction(action)
+        
+        let dismissAction = UIAlertAction(title: "Cancel", style: .default) {
+            
+            (alertAction) in
+            
+            self.dismiss(animated: true, completion: nil)
+        }
+        
+        alertController.addAction(addAction)
+        alertController.addAction(dismissAction)
+        
+        alertController.preferredAction = addAction
         
         alertController.addTextField { (alertTextField) in
-            alertTextField.placeholder = "Add new Category"
+            alertTextField.placeholder = "e.g. Grocery, Work etc"
+            alertTextField.autocorrectionType = .yes
+            alertTextField.autocapitalizationType = .words
             textField = alertTextField
         }
-        
-      
         
         present(alertController, animated: true, completion: nil)
         
@@ -99,11 +174,121 @@ class CategoryViewController: UITableViewController {
         }
     }
     
+    override func updateModel(at indexPath: IndexPath) {
+        
+        if let categoryForDeletion = self.categoryItems?[indexPath.row] {
+
+            delete(category: categoryForDeletion)
+
+        }
+    }
+    
+    func delete(category: Category) {
+        do {
+            try realm.write {
+                realm.delete(category)
+            }
+        }
+        catch {
+            print("Error deleting data using Realm \(error)")
+        }
+    }
+    
     func loadCategories() {
 
         categoryItems = realm.objects(Category.self).sorted(byKeyPath: "title")
         tableView.reloadData()
         
+    }
+    
+    //MARK:- More Actions Such as Editing the Category Name, Location Based Services etc.
+    
+    override func moreActions(at indexPath: IndexPath) {
+        
+        guard let category = self.categoryItems?[indexPath.row] else { fatalError() }
+        
+        var textField: UITextField?
+        
+        let alertController = UIAlertController(title: "Edit Category", message: "", preferredStyle: .alert)
+        
+        let editAction = UIAlertAction(title: "Modify", style: .default) {
+            
+            (alertAction) in
+            
+            if !(textField?.text ?? "").isEmpty {
+            
+            self.update(category: category, newTitle: textField!.text!)
+            
+            self.tableView.reloadData()
+            }
+            else {
+                
+            self.invalidCategory(at: indexPath)
+                
+            }
+        }
+        
+        
+        let dismissAction = UIAlertAction(title: "Cancel", style: .default) {
+            
+            (alertAction) in
+            
+            self.dismiss(animated: true, completion: nil)
+            self.tableView.reloadData()
+        }
+        
+        alertController.addAction(editAction)
+        alertController.addAction(dismissAction)
+        
+        alertController.preferredAction = editAction
+        
+        alertController.addTextField { (alertTextField) in
+            alertTextField.placeholder = category.title
+            textField = alertTextField
+        }
+        
+        present(alertController, animated: true, completion: nil)
+    }
+    
+    func invalidCategory(at indexPath: IndexPath) {
+        
+        let alertController = UIAlertController(title: "Please enter a valid category name", message: "", preferredStyle: .alert)
+        
+        let okAction = UIAlertAction(title: "Ok", style: .default) {
+            (alertAction) in
+            
+            self.moreActions(at: indexPath)
+        }
+        
+        alertController.addAction(okAction)
+        alertController.preferredAction = okAction
+        
+         present(alertController, animated: true, completion: nil)
+    }
+    
+    func update(category: Category, newTitle: String) {
+        
+        do {
+            try realm.write {
+                category.title = newTitle
+            }
+        }
+        catch {
+            print("Error Updating data using Realm \(error)")
+        }
+    }
+    
+    func invalidCategory() {
+        
+        let alertController = UIAlertController(title: "Please enter a valid category name", message: "", preferredStyle: .alert)
+        
+        let okAction = UIAlertAction(title: "Ok", style: .default, handler: nil)
+        
+        alertController.addAction(okAction)
+        
+        alertController.preferredAction = okAction
+        
+        present(alertController, animated: true, completion: nil)
     }
     
 }

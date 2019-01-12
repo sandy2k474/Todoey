@@ -8,32 +8,109 @@
 
 import UIKit
 import RealmSwift
+import ChameleonFramework
 
-class ToDoListViewController: UITableViewController {
+
+class ToDoListViewController: SwipeTableViewController {
+    
+    @IBOutlet weak var searchBar: UISearchBar!
     
     let realm = try! Realm()
 
     var todoItems: Results<Item>?
+    var allItems : Results<Item>?
     var parentCategory: Category? {
         didSet {
-            self.title = parentCategory?.title
             loadData()
+            allItems = todoItems
         }
     }
   
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        tableView.rowHeight = 80
+        tableView.separatorStyle = .none
 
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        
+        guard let selectedCategory = parentCategory else {
+            fatalError()
+        }
+        
+        title = selectedCategory.title
+    
+        updateNavigationBar(withHexCode: selectedCategory.backgroundColour)
+        
+        searchBar.layer.borderWidth = 5
+        searchBar.layer.borderColor = UIColor(hexString: selectedCategory.backgroundColour)?.cgColor
+
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        
+        updateNavigationBar(withHexCode: "1D9BF6")
+    }
+    
+    
+    //MARK:- Update Navigation Bar
+    func updateNavigationBar(withHexCode colourCode: String) {
+        
+        guard let navigationBar = navigationController?.navigationBar else {
+            fatalError()
+        }
+        
+        guard let colour = UIColor(hexString: colourCode) else {
+            fatalError()
+        }
+        
+        navigationBar.barTintColor = colour
+        navigationBar.tintColor = ContrastColorOf(colour, returnFlat: true)
+        navigationBar.largeTitleTextAttributes = [NSAttributedString.Key.foregroundColor: ContrastColorOf(colour, returnFlat: true)]
+        
+        searchBar.barTintColor = colour
+        
+        searchBar.isTranslucent = true
+        
     }
     
     //MARK: Datasource Methods
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
-        let cell = tableView.dequeueReusableCell(withIdentifier: "ToDoItemCell", for: indexPath)
+        let cell = super.tableView(tableView, cellForRowAt: indexPath)
         
-        cell.textLabel?.text = todoItems?[indexPath.row].title ?? "No Items Found"
-        cell.accessoryType = todoItems?[indexPath.row].done ?? false ? .checkmark : .none
+        if let currentItem = todoItems?[indexPath.row] {
+        
+        cell.textLabel?.text = currentItem.title
+        cell.accessoryType = currentItem.done ? .checkmark : .none
+            
+        //cell.textLabel?.font = UIFont(name: "Menlo", size: 20)
+            
+            if let font = UserDefaults.standard.string(forKey: "font") {
+                
+               cell.textLabel?.font = UIFont(name: font, size: 20)
+            }
+            
+        let percent = CGFloat(indexPath.row + 1)/CGFloat(todoItems!.count)
+           // print("Darken Percentage: \(percent)")
+        
+        guard let categoryColour = UIColor(hexString: parentCategory!.backgroundColour) else { fatalError() }
+            
+         cell.backgroundColor = categoryColour.darken(byPercentage: percent)
+            
+          cell.textLabel?.textColor = ContrastColorOf(cell.backgroundColor!, returnFlat: true)
+        
+        //Set tint colour for the accessory types
+        cell.tintColor = ContrastColorOf(cell.backgroundColor!, returnFlat: true)
+            
+        }
+        else
+        {
+            cell.textLabel?.text = "No Items Found"
+        }
         
         return cell
     }
@@ -68,9 +145,9 @@ class ToDoListViewController: UITableViewController {
         
         var txtField : UITextField!
         
-        let alert = UIAlertController(title: "Add New ToDo Item", message: "", preferredStyle: .alert)
+        let alert = UIAlertController(title: "Add New Item", message: "", preferredStyle: .alert)
         
-        let action = UIAlertAction(title: "Add Item", style: .default) {
+        let addAction = UIAlertAction(title: "Add", style: .default) {
             
             (alertAction) in
             
@@ -91,15 +168,27 @@ class ToDoListViewController: UITableViewController {
             self.tableView.reloadData()
             
             }
+        
+         let dismissAction = UIAlertAction(title: "Cancel", style: .default) {
+            
+            (alertAction) in
+            
+            self.dismiss(animated: true, completion: nil)
+        }
     
-            alert.addAction(action)
+            alert.addAction(addAction)
+            alert.addAction(dismissAction)
+
+            alert.preferredAction = addAction
         
             alert.addTextField {
             
-            (textField) in
+            (alertTextField) in
             
-            textField.placeholder = "Create New Item"
-            txtField = textField
+            alertTextField.placeholder = "Create a New Item"
+            alertTextField.autocorrectionType = .yes
+            alertTextField.autocapitalizationType = .words
+            txtField = alertTextField
             
         }
     
@@ -110,14 +199,36 @@ class ToDoListViewController: UITableViewController {
     
     func loadData() {
         
-          todoItems = parentCategory?.items.sorted(byKeyPath: "title", ascending: true)
+          todoItems = parentCategory?.items.sorted(byKeyPath: "done", ascending: true)
           tableView.reloadData()
     }
     
     func loadData(with predicate: NSPredicate) {
         
-        todoItems = todoItems?.filter(predicate).sorted(byKeyPath: "title", ascending: true)
+        
+        todoItems = allItems?.filter(predicate).sorted(byKeyPath: "done", ascending: true)
+        
         tableView.reloadData()
+    }
+    
+    override func updateModel(at indexPath: IndexPath) {
+        
+        if let itemForDeletion = self.todoItems?[indexPath.row] {
+            
+            delete(item: itemForDeletion)
+            
+        }
+    }
+    
+    func delete(item: Item) {
+        do {
+            try realm.write {
+                realm.delete(item)
+            }
+        }
+        catch {
+            print("Error deleting data using Realm \(error)")
+        }
     }
 }
 
@@ -144,11 +255,13 @@ extension ToDoListViewController: UISearchBarDelegate {
               loadData()
 
              DispatchQueue.main.async {
-                searchBar.resignFirstResponder()
+             searchBar.resignFirstResponder()
             }
         }
         else {
+            
             let itemPredicate = NSPredicate(format: "title CONTAINS[cd] %@", searchBar.text!)
+            
             loadData(with: itemPredicate)
         }
     }
