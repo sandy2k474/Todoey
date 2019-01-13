@@ -203,50 +203,100 @@ class CategoryViewController: SwipeTableViewController {
     
     //MARK:- More Actions Such as Editing the Category Name, Location Based Services etc.
     
+//    override func moreActions(at indexPath: IndexPath) {
+//
+//        guard let category = self.categoryItems?[indexPath.row] else { fatalError() }
+//
+//        var textField: UITextField?
+//
+//        let alertController = UIAlertController(title: "Edit Category", message: "", preferredStyle: .alert)
+//
+//        let editAction = UIAlertAction(title: "Modify", style: .default) {
+//
+//            (alertAction) in
+//
+//            if !(textField?.text ?? "").isEmpty {
+//
+//            self.update(category: category, newTitle: textField!.text!)
+//
+//            self.tableView.reloadData()
+//            }
+//            else {
+//
+//            self.invalidCategory(at: indexPath)
+//
+//            }
+//        }
+//
+//
+//        let dismissAction = UIAlertAction(title: "Cancel", style: .default) {
+//
+//            (alertAction) in
+//
+//            self.dismiss(animated: true, completion: nil)
+//            self.tableView.reloadData()
+//        }
+//
+//        alertController.addAction(editAction)
+//        alertController.addAction(dismissAction)
+//
+//        alertController.preferredAction = editAction
+//
+//        alertController.addTextField { (alertTextField) in
+//            alertTextField.placeholder = category.title
+//            textField = alertTextField
+//        }
+//
+//        present(alertController, animated: true, completion: nil)
+//    }
+    
+    
     override func moreActions(at indexPath: IndexPath) {
         
         guard let category = self.categoryItems?[indexPath.row] else { fatalError() }
         
         var textField: UITextField?
+
+       // let alertController = UIAlertController(title: "Edit Category", message: "", preferredStyle: .actionSheet)
         
-        let alertController = UIAlertController(title: "Edit Category", message: "", preferredStyle: .alert)
-        
+         let alertController = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+
         let editAction = UIAlertAction(title: "Modify", style: .default) {
-            
+
             (alertAction) in
-            
+
             if !(textField?.text ?? "").isEmpty {
-            
-            self.update(category: category, newTitle: textField!.text!)
-            
-            self.tableView.reloadData()
+
+                self.update(category: category, newTitle: textField!.text!)
+
+                self.tableView.reloadData()
             }
             else {
-                
-            self.invalidCategory(at: indexPath)
-                
+
+                self.invalidCategory(at: indexPath)
+
             }
         }
-        
-        
+
+
         let dismissAction = UIAlertAction(title: "Cancel", style: .default) {
-            
+
             (alertAction) in
-            
+
             self.dismiss(animated: true, completion: nil)
             self.tableView.reloadData()
         }
-        
+
         alertController.addAction(editAction)
         alertController.addAction(dismissAction)
-        
+
         alertController.preferredAction = editAction
-        
-        alertController.addTextField { (alertTextField) in
-            alertTextField.placeholder = category.title
-            textField = alertTextField
-        }
-        
+
+//        alertController.addTextField { (alertTextField) in
+//            alertTextField.placeholder = category.title
+//            textField = alertTextField
+//        }
+
         present(alertController, animated: true, completion: nil)
     }
     

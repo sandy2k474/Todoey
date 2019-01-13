@@ -15,6 +15,8 @@ class ToDoListViewController: SwipeTableViewController {
     
     @IBOutlet weak var searchBar: UISearchBar!
     
+   // let searchController = UISearchController(searchResultsController: nil)
+    
     let realm = try! Realm()
 
     var todoItems: Results<Item>?
@@ -31,6 +33,9 @@ class ToDoListViewController: SwipeTableViewController {
         
         tableView.rowHeight = 80
         tableView.separatorStyle = .none
+        
+     //   navigationItem.searchController = searchController
+     //   navigationItem.hidesSearchBarWhenScrolling = false
 
     }
     
@@ -46,7 +51,7 @@ class ToDoListViewController: SwipeTableViewController {
         
         searchBar.layer.borderWidth = 5
         searchBar.layer.borderColor = UIColor(hexString: selectedCategory.backgroundColour)?.cgColor
-
+        
     }
     
     override func viewWillDisappear(_ animated: Bool) {
